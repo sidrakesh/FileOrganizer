@@ -18,6 +18,7 @@ using System.IO;
 using Microsoft.Win32;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
+using Log;
 
 namespace FileOrganizer
 {
@@ -37,7 +38,7 @@ namespace FileOrganizer
         string[] dataFileExtensions = { ".csv", ".dat", ".efx", ".gbr", ".key", ".pps", ".ppt", ".pptx",
                                           ".sdf", ".tax2010", ".vcf", ".xml" };
         string[] developerExtensions = { ".c", ".class", ".cpp", ".cs", ".dtd", ".fla", ".java", ".m", 
-                                           ".pl", ".py", ".pyc" };
+                                           ".pl", ".py", ".pyc", ".in", ".out", ".h" };
         string[] diskImageExtensions = { ".dmg", ".iso", ".toast", ".vcd" };
         string[] compressedExtensions = { ".7z", ".deb", ".gz", ".pkg", ".rar", ".rpm", ".sit", ".sitx",
                                             ".tar.gz", ".zip", ".zipx", ".tar" };
@@ -45,10 +46,12 @@ namespace FileOrganizer
                                      ".rss", ".xhtml" };
         string[] executableExtensions = { ".app", ".bat", ".cgi", ".com", ".exe", ".gadget", ".jar", 
                                             ".pif", ".vb", ".wsf" };
-        string[] pageLayoutExtensions = { ".indd", ".pct", ".pdf", ".qxd", ".qxp", ".rels" };
+        string[] pageLayoutExtensions = { ".indd", ".pct", ".pdf", ".qxd", ".qxp", ".rels", ".mobi", ".epub"};
         string[] spreadSheetExtensions = { ".xls", ".xlr", ".xlsx" };
         string[] vectorImageExtensions = { ".ai", ".drw", ".eps", ".ps", ".svg"};
         string[] ignoreExtensions = { ".ini", ".db" };
+        string[] cSharpProjectExtensions = { ".csproj"};
+        string[] vsProjectExtensions = { ".sln" };
 
         string videoPath = Environment.GetFolderPath(Environment.SpecialFolder.MyVideos);
         string imagePath = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
@@ -126,15 +129,19 @@ namespace FileOrganizer
             {
                 newFilePath = System.IO.Path.Combine(System.IO.Path.Combine(documentPath, "LaTeX"), fi.Name);
             }
+            //else if()
 
             return newFilePath;
         }
+
+        Logger logger = new Logger();
+        string selectedPath = "";
+
         public MainWindow()
         {
             InitializeComponent();
 
-            //string desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
-            //File.Delete(System.IO.Path.Combine(desktopPath, "airtel"));
+            logger.InfoLog("Initialization performed");
         }
 
         private void OpenTargetDirectory_Click(object sender, RoutedEventArgs e)
@@ -145,30 +152,32 @@ namespace FileOrganizer
             if (result.ToString().Equals("OK"))
             {
                 DirectoryPath.Text = dialog.SelectedPath;
+                selectedPath = dialog.SelectedPath;
                 SortButton.IsEnabled = true;
+                logger.SuccessLog("Directory " + dialog.SelectedPath + " selected");
             }
         }
 
         private void SortButton_Click(object sender, RoutedEventArgs e)
         {
-            // Get the root directory and print out some information about it.
-            System.IO.DirectoryInfo dirInfo = new System.IO.DirectoryInfo(DirectoryPath.Text);
+            // Get the root directory
+            System.IO.DirectoryInfo dirInfo = new System.IO.DirectoryInfo(selectedPath);
 
-            // Get the files in the directory and print out some information about them.
+            // Get the files in the directory
             System.IO.FileInfo[] fileInfos = dirInfo.GetFiles("*.*");
 
             string displayResult = "";
-            //string all = "";
 
             foreach (System.IO.FileInfo fileInfo in fileInfos)
             {
-                //string attr = fileInfo.Attributes.ToString();
                 string newFilePath = getFileString(fileInfo);
 
                 if (newFilePath.Equals("ignore"))
+                {
+                    logger.InfoLog("Ignoring file " + fileInfo.FullName);
                     continue;
+                }
 
-                //all += fileInfo.FullName + "\n";
                 string currentDirectory = fileInfo.Directory.FullName;
                 string extension = fileInfo.Extension;
                 string nameWithoutExtension = System.IO.Path.GetFileNameWithoutExtension(fileInfo.Name);
@@ -180,11 +189,14 @@ namespace FileOrganizer
                     if (!System.IO.Directory.Exists(destDirectory))
                     {
                         System.IO.Directory.CreateDirectory(destDirectory);
+                        logger.InfoLog("Destination directory " + destDirectory + " created");
                     }
 
                     if (!System.IO.File.Exists(newFilePath))
                     {
                         File.Move(fileInfo.FullName, newFilePath);
+
+                        logger.InfoLog("Moved file " + fileInfo.FullName + " to " + newFilePath);
 
                         if (extension.Equals(".html"))
                         {
@@ -193,23 +205,32 @@ namespace FileOrganizer
                             {
                                 string destFolder = System.IO.Path.Combine(destDirectory, nameWithoutExtension + "_files");
                                 Directory.Move(resourceFolder, destFolder);
+                                logger.InfoLog("Moved resource directory " + destFolder + " for html page");
                             }
                         }
                     }
                     else
+                    {
                         displayResult += "File '" + System.IO.Path.GetFileName(newFilePath) + "' already exists at destination '" + destDirectory + "'\n";
+                        logger.FailureLog("File '" + System.IO.Path.GetFileName(newFilePath) + "' already exists at destination '" + destDirectory + "'");
+                    }
                 }
                 else
                 {
                     displayResult += "Encountered unresolved File " + fileInfo.Name + "\n";
+                    logger.FailureLog("Encountered unresolved File " + fileInfo.Name);
                 }
             }
 
-            if(displayResult.Equals(""))
+            if (displayResult.Equals(""))
+            {
                 System.Windows.MessageBox.Show("All files moved successfully");
+                logger.SuccessLog("All files moved successfully from " + selectedPath);
+            }
             else
+            {
                 System.Windows.MessageBox.Show(displayResult + "Remaining files moved successfully!");
-
+            }
             //System.Windows.MessageBox.Show(all);
         }
     }
